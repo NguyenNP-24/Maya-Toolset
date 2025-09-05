@@ -1,0 +1,35 @@
+import maya.cmds as cmds
+
+def insert_extra_group():
+    sel = cmds.ls(selection=True)
+    if not sel:
+        cmds.warning("Hãy chọn 1 controller trước.")
+        return
+    
+    ctrl = sel[0]
+    extra_grp = ctrl + "_extra"
+    
+    # Kiểm tra nếu đã tồn tại thì thôi
+    if cmds.objExists(extra_grp):
+        cmds.warning("Group %s đã tồn tại!" % extra_grp)
+        return
+    
+    # Lấy cha hiện tại của controller (nếu có)
+    parent = cmds.listRelatives(ctrl, parent=True)
+    
+    # Tạo group mới ngay tại vị trí controller
+    grp = cmds.group(empty=True, name=extra_grp)
+    const = cmds.parentConstraint(ctrl, grp, mo=False)
+    cmds.delete(const)
+    
+    # Nếu controller có cha → parent group mới vào cha đó
+    if parent:
+        cmds.parent(grp, parent[0])
+    
+    # Parent controller vào group mới
+    cmds.parent(ctrl, grp)
+    
+    print("Đã chèn extra group cho %s: %s" % (ctrl, grp))
+
+# Gọi hàm
+insert_extra_group()
