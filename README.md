@@ -4,3 +4,4 @@ A banch of small function for rigging and animtion flow better in Maya
 - Render multiple playblast at same time, 4 panel example
 - Batch skeleton rename
 - Create additional extra group for any selected controller, non destructive workflow and nonbreak existing keyframe animated
+- Seperate skinned meshs into multiples pierces without skin break, and vice versa, no history and transform group
