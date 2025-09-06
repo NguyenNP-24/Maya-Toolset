@@ -1,0 +1,21 @@
+import maya.cmds as cmds
+
+def select_cv_only():
+    sel = cmds.ls(selection=True, flatten=True)
+    if not sel:
+        cmds.warning("No selection found.")
+        return
+
+    cv_list = []
+    for obj in sel:
+        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True) or []
+        for shape in shapes:
+            if cmds.nodeType(shape) == 'nurbsCurve':
+                cv_list.append(shape + '.cv[*]')
+
+    if cv_list:
+        cmds.select(cv_list, replace=True)
+    else:
+        cmds.warning("No nurbsCurve shapes found.")
+
+select_cv_only()
