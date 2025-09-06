@@ -1,0 +1,48 @@
+import maya.cmds as cmds
+
+def smart_extract_separate():
+    sel = cmds.ls(selection=True, flatten=True)
+
+    if not sel:
+        cmds.warning('Không có gì \u0111\u01b0\u1ee3c ch\u1ecdn.')
+        return
+
+    # Xác \u0111\u1ecbnh lo\u1ea1i selection
+    if '.f[' in sel[0]:
+        faces = sel
+    elif '.vtx[' in sel[0] or '.e[' in sel[0]:
+        faces = cmds.polyListComponentConversion(sel, toFace=True)
+        faces = cmds.ls(faces, flatten=True)
+    else:
+        cmds.warning('Vui lòng ch\u1ecdn face, vertex ho\u1eb7c edge.')
+        return
+
+    if not faces:
+        cmds.warning('Không tìm th\u1ea5y face sau khi convert.')
+        return
+
+    # L\u1ea5y object g\u1ed1c t\u1eeb face
+    base_obj = faces[0].split('.')[0]
+
+    # Duplicate object g\u1ed1c
+    dup_obj = cmds.duplicate(base_obj, name=base_obj + '_extracted')[0]
+
+    # In b\u1ea3n duplicate: gi\u1eef l\u1ea1i faces \u0111ã ch\u1ecdn, xóa ng\u01b0\u1ee3c l\u1ea1i
+    all_faces_dup = cmds.ls(dup_obj + '.f[*]', flatten=True)
+    faces_to_delete = list(set(all_faces_dup) - set([f.replace(base_obj, dup_obj) for f in faces]))
+    if faces_to_delete:
+        cmds.delete(faces_to_delete)
+
+    # Trong b\u1ea3n g\u1ed1c: xóa các faces \u0111ã ch\u1ecdn
+    cmds.delete(faces)
+
+    # Cleanup b\u1ea3n m\u1edbi
+    cmds.select(dup_obj)
+    cmds.makeIdentity(apply=True, t=1, r=1, s=1, n=0)
+    cmds.delete(ch=True)
+    cmds.xform(cp=True)
+
+    print('\u2705 Tách mesh thành công!')
+
+# Ch\u1ea1y hàm
+smart_extract_separate()
