@@ -1,0 +1,130 @@
+import maya.cmds as cmds
+import math
+# Create joint follow edge support Spring game ready rig.
+def create_spring_joints_from_edge_loop(num_joints=20, prefix='spring'):
+    sel = cmds.ls(sl=True, fl=True)
+    if not sel:
+        cmds.warning('Hãy chọn edge loop (các edge) của mesh spring trước.')
+        return
+
+    # Chuyển selection sang edges
+    edges = cmds.polyListComponentConversion(sel, toEdge=True)
+    edges = cmds.ls(edges, fl=True) or []
+    if not edges:
+        cmds.warning('Không có edge nào được chọn. Hãy chọn một edge loop.')
+        return
+
+    # Tạo temporary curve từ edges (degree=1 để giữ thứ tự điểm)
+    prev_sel = cmds.ls(sl=True)
+    cmds.select(edges, r=True)
+    curve_transforms = cmds.polyToCurve(form=2, degree=1, ch=False) or []
+    cmds.select(prev_sel, r=True)
+    if not curve_transforms:
+        cmds.warning('polyToCurve thất bại. Kiểm tra xem edge có phải edge loop hợp lệ không.')
+        return
+    curve = curve_transforms[0]
+    shapes = cmds.listRelatives(curve, shapes=True) or []
+    if not shapes:
+        cmds.delete(curve)
+        cmds.warning('Không tìm thấy shape curve.')
+        return
+    shape = shapes[0]
+
+    # Lấy vị trí CV (world space) — thứ tự theo edge loop
+    cvs = cmds.ls('{}.cv[*]'.format(shape), fl=True) or []
+    positions = [cmds.xform(cv, q=True, ws=True, t=True) for cv in cvs]
+
+    # Nếu curve đóng (duplicate point cuối = đầu) → loại bỏ điểm cuối
+    def dist(a, b):
+        return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
+    if len(positions) > 1 and dist(positions[0], positions[-1]) < 1e-5:
+        positions.pop()
+
+    # Xoá temporary curve
+    cmds.delete(curve)
+
+    if len(positions) < 2:
+        cmds.warning('Không đủ điểm để tạo chain joint.')
+        return
+
+    if num_joints < 2:
+        cmds.warning('Số joint phải >= 2.')
+        return
+
+    # Tính chiều dài rời rạc giữa các điểm -> resample theo arc-length
+    seg_lengths = []
+    cum_lengths = [0.0]
+    total = 0.0
+    for i in range(len(positions)-1):
+        l = dist(positions[i], positions[i+1])
+        seg_lengths.append(l)
+        total += l
+        cum_lengths.append(total)
+
+    if total == 0.0:
+        cmds.warning('Độ dài loop bằng 0. Kiểm tra selection.')
+        return
+
+    # Lấy điểm theo khoảng cách d dọc polyline (linear interpolation giữa 2 điểm liền kề)
+    def point_at_distance(d):
+        if d <= 0:
+            return positions[0]
+        if d >= total:
+            return positions[-1]
+        for i in range(len(seg_lengths)):
+            if cum_lengths[i] <= d <= cum_lengths[i+1]:
+                seg_d = d - cum_lengths[i]
+                seg_l = seg_lengths[i] if seg_lengths[i] != 0 else 1e-6
+                t = seg_d / seg_l
+                a = positions[i]
+                b = positions[i+1]
+                return [a[0] + (b[0]-a[0])*t,
+                        a[1] + (b[1]-a[1])*t,
+                        a[2] + (b[2]-a[2])*t]
+        return positions[-1]
+
+    new_positions = []
+    for i in range(num_joints):
+        d = float(i) * total / float(num_joints-1)
+        new_positions.append(point_at_distance(d))
+
+    # Tạo joint chain (tạo nối tiếp để tự parent)
+    cmds.select(clear=True)
+    joint_names = []
+    for i, pos in enumerate(new_positions):
+        name = '{}_jnt_{:02d}'.format(prefix, i+1)
+        if i == 0:
+            j = cmds.joint(p=pos, name=name, radius=0.2)
+        else:
+            j = cmds.joint(p=pos, name=name, radius=0.2)
+        joint_names.append(j)
+
+    cmds.select(joint_names[0])
+    print('Đã tạo {} joints.'.format(len(joint_names)))
+    return joint_names
+
+
+# ------- UI nhỏ tiện dụng -------
+def spring_joint_ui():
+    if cmds.window('springJointWin', exists=True):
+        cmds.deleteUI('springJointWin')
+    win = cmds.window('springJointWin', title='Spring Joint Creator', widthHeight=(340,120))
+    cmds.columnLayout(adjustableColumn=True, rowSpacing=6, columnAlign='center')
+    cmds.text(label='Chọn edge loop trên mesh spring -> nhập số joints -> bấm Create', align='center')
+    cmds.rowLayout(numberOfColumns=2, columnWidth2=(100,200), adjustableColumn=2)
+    cmds.text(label='Số joints:')
+    num_field = cmds.intField(value=20, minValue=2)
+    cmds.setParent('..')
+    cmds.rowLayout(numberOfColumns=2, columnWidth2=(100,200), adjustableColumn=2)
+    cmds.text(label='Prefix:')
+    prefix_field = cmds.textField(text='spring')
+    cmds.setParent('..')
+    def run(*args):
+        num = cmds.intField(num_field, q=True, v=True)
+        prefix = cmds.textField(prefix_field, q=True, text=True) or 'spring'
+        create_spring_joints_from_edge_loop(num_joints=num, prefix=prefix)
+    cmds.button(label='Create Joint Chain', command=run, bgc=(0.25,0.55,0.25), height=30)
+    cmds.showWindow(win)
+
+# gọi UI
+spring_joint_ui()
