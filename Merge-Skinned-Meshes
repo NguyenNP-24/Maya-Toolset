@@ -1,42 +1,33 @@
 import maya.cmds as cmds
 
 def combine_meshes():
-    # L\u1ea5y danh sách các object \u0111\u01b0\u1ee3c ch\u1ecdn
     selected = cmds.ls(selection=True, long=True)
 
-    # Ki\u1ec3m tra xem có ít nh\u1ea5t 2 object \u0111\u01b0\u1ee3c ch\u1ecdn không
     if len(selected) < 2:
         cmds.error("Vui lòng ch\u1ecdn ít nh\u1ea5t 2 mesh \u0111\u1ec3 combine!")
 
-    # Ki\u1ec3m tra xem t\u1ea5t c\u1ea3 các \u0111\u1ed1i t\u01b0\u1ee3ng \u0111ã ch\u1ecdn \u0111\u1ec1u là mesh ho\u1eb7c là transform node ch\u1ee9a mesh
     for obj in selected:
-        # Ki\u1ec3m tra n\u1ebfu \u0111\u1ed1i t\u01b0\u1ee3ng không ph\u1ea3i mesh, xem nó có ph\u1ea3i là transform node ch\u1ee9a mesh không
         if cmds.objectType(obj) != "transform" and cmds.objectType(obj) != "mesh":
             cmds.error(f"{obj} không ph\u1ea3i là mesh ho\u1eb7c transform node h\u1ee3p l\u1ec7! Vui lòng ch\u1ecdn các mesh h\u1ee3p l\u1ec7.")
         
-        # N\u1ebfu là transform node, ki\u1ec3m tra xem nó có con là mesh không
         if cmds.objectType(obj) == "transform":
             children = cmds.listRelatives(obj, children=True) or []
             if not any(cmds.objectType(child) == "mesh" for child in children):
                 cmds.error(f"{obj} không ch\u1ee9a b\u1ea5t k\u1ef3 mesh nào! Vui lòng ch\u1ecdn các mesh h\u1ee3p l\u1ec7.")
     
-    # Deselect m\u1ecdi th\u1ee9 tr\u01b0\u1edbc khi th\u1ef1c hi\u1ec7n
+    # Deselect
     cmds.select(clear=True)
 
-    # Combine t\u1ea5t c\u1ea3 các mesh \u0111\u01b0\u1ee3c ch\u1ecdn
+    # Combine 
     combined = cmds.polyUnite(selected, name="combinedMesh")[0]
 
-    # Xóa history \u0111\u1ec3 không gi\u1eef l\u1ea1i thông tin c\u0169
     cmds.delete(combined, constructionHistory=True)
 
-    # Tìm t\u1ea5t c\u1ea3 các group r\u1ed7ng và xóa chúng
     groups = cmds.listRelatives(combined, allDescendents=True, type="transform")
     for group in groups:
         if cmds.listRelatives(group, children=True) == []:  # Ki\u1ec3m tra group có con không
             cmds.delete(group)  # Xóa group r\u1ed7ng
 
-    # \u0110\u1ea3m b\u1ea3o ch\u1ec9 còn l\u1ea1i mesh h\u1ee3p nh\u1ea5t và không có group d\u01b0 th\u1eeba
     cmds.select(combined)
 
-# G\u1ecdi function combine
 combine_meshes()
